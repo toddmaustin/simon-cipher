@@ -1,0 +1,91 @@
+CAPI=2:
+
+name: toddmaustin:crypto:simon:0
+description: SIMON lightweight block cipher
+
+filesets:
+  rtl:
+    files:
+      - simon_core.sv : {file_type: systemVerilogSource}
+
+  sw_model:
+    files:
+      - simon.h : {is_include_file : true}
+      - simon_internal.h : {is_include_file : true}
+      - simon.cpp
+    file_type: cppSource
+
+  tb:
+    files:
+      - tb_simon_core.cpp
+    file_type: cppSource
+
+targets:
+  default:
+    filesets: [rtl]
+
+  sim: &sim
+    description: Verilator simulation with randomized differential fuzzing. Key width 128, data width 128
+    filesets: [rtl, sw_model, tb]
+    flow: sim
+    flow_options:
+      tool: verilator
+      verilator_options:
+        - --Wall
+        - -O3
+        - -Wno-widthtrunc
+        - -CFLAGS "-DSIMON_KEY_W=128 -DSIMON_DATA_W=128"
+      make_options: [OPT_FAST="-O0 -g"]
+      run_options: [--maxtrials, "2000000"]
+    parameters:
+      - SIMON_KEY_W=128
+      - SIMON_DATA_W=128
+      - SIMON_ROUNDS=68
+      - SIMON_ROUNDS_PER_CYCLE
+    toplevel: simon_core
+
+  sim_64_32:
+    <<: *sim
+    description: Verilator simulation with randomized differential fuzzing. Key width 64, data width 32
+    flow_options:
+      verilator_options:
+        - -CFLAGS "-DSIMON_KEY_W=64 -DSIMON_DATA_W=32"
+    parameters:
+      - SIMON_KEY_W=64
+      - SIMON_DATA_W=32
+      - SIMON_ROUNDS=32
+      - SIMON_ROUNDS_PER_CYCLE
+
+  sim_128_64:
+    <<: *sim
+    description: Verilator simulation with randomized differential fuzzing. Key width 128, data width 64
+    flow_options:
+      verilator_options:
+        - -CFLAGS "-DSIMON_KEY_W=128 -DSIMON_DATA_W=64"
+    parameters:
+      - SIMON_KEY_W=128
+      - SIMON_DATA_W=64
+      - SIMON_ROUNDS=44
+      - SIMON_ROUNDS_PER_CYCLE
+
+parameters:
+  SIMON_KEY_W:
+    datatype: int
+    description: "Key width in bits. Supported values: 64, 128."
+    paramtype: vlogparam
+
+  SIMON_DATA_W:
+    datatype: int
+    description: "Block width in bits. Supported values: 32, 64, 128."
+    paramtype: vlogparam
+
+  SIMON_ROUNDS:
+    datatype: int
+    description: "Total number of cipher rounds. Standard values: 32 (64/32), 44 (128/64), 68 (128/128)."
+    paramtype: vlogparam
+
+  SIMON_ROUNDS_PER_CYCLE:
+    datatype: int
+    default: 12
+    description: "Rounds evaluated per clock cycle. Trades combinational depth and area against operation latency."
+    paramtype: vlogparam
